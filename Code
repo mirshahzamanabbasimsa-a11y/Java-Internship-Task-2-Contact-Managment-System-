@@ -1,0 +1,244 @@
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
+import java.util.ArrayList;
+import java.util.List;
+
+public class ContactManagementSystem extends JFrame {
+
+    private final List<Contact> contacts = new ArrayList<>();
+
+    private JTextField nameField;
+    private JTextField phoneField;
+    private JTextField searchField;
+    private DefaultTableModel tableModel;
+    private JTable table;
+    private JLabel statusLabel;
+
+    public ContactManagementSystem() {
+        setTitle("Contact Management System");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(650, 500);
+        setMinimumSize(new Dimension(600, 450));
+        setLocationRelativeTo(null);
+
+        buildUI();
+    }
+
+    
+    private void buildUI() {
+        getContentPane().setBackground(new Color(244, 246, 248));
+        setLayout(new BorderLayout());
+
+        JLabel title = new JLabel("Contact Management System", SwingConstants.CENTER);
+        title.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        title.setOpaque(true);
+        title.setBackground(new Color(44, 62, 80));
+        title.setForeground(Color.WHITE);
+        title.setBorder(BorderFactory.createEmptyBorder(14, 0, 14, 0));
+        add(title, BorderLayout.NORTH);
+
+        JPanel centerPanel = new JPanel(new BorderLayout(10, 10));
+        centerPanel.setBackground(new Color(244, 246, 248));
+        centerPanel.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
+        add(centerPanel, BorderLayout.CENTER);
+
+        JPanel inputPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 5));
+        inputPanel.setBackground(new Color(244, 246, 248));
+
+        inputPanel.add(new JLabel("Name:"));
+        nameField = new JTextField(15);
+        inputPanel.add(nameField);
+
+        inputPanel.add(new JLabel("Phone:"));
+        phoneField = new JTextField(12);
+        inputPanel.add(phoneField);
+
+        JButton addButton = new JButton("Add Contact");
+        styleButton(addButton);
+        addButton.addActionListener(e -> addContact());
+        inputPanel.add(addButton);
+
+        JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 5));
+        searchPanel.setBackground(new Color(244, 246, 248));
+
+        searchPanel.add(new JLabel("Search by name:"));
+        searchField = new JTextField(15);
+        searchField.getDocument().addDocumentListener(new SimpleDocListener(this::searchContacts));
+        searchPanel.add(searchField);
+
+        JButton clearButton = new JButton("Clear Search");
+        clearButton.addActionListener(e -> {
+            searchField.setText("");
+            refreshTable(contacts);
+        });
+        searchPanel.add(clearButton);
+
+        JButton deleteButton = new JButton("Delete Selected");
+        styleButton(deleteButton);
+        deleteButton.addActionListener(e -> deleteContact());
+        searchPanel.add(deleteButton);
+
+        JPanel topStack = new JPanel();
+        topStack.setLayout(new BoxLayout(topStack, BoxLayout.Y_AXIS));
+        topStack.setBackground(new Color(244, 246, 248));
+        topStack.add(inputPanel);
+        topStack.add(searchPanel);
+        centerPanel.add(topStack, BorderLayout.NORTH);
+
+        tableModel = new DefaultTableModel(new Object[]{"Name", "Phone Number"}, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false; // read-only table
+            }
+        };
+        table = new JTable(tableModel);
+        table.setRowHeight(26);
+        table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 12));
+        table.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        table.setSelectionBackground(new Color(52, 152, 219));
+
+        JScrollPane scrollPane = new JScrollPane(table);
+        centerPanel.add(scrollPane, BorderLayout.CENTER);
+
+        statusLabel = new JLabel("No contacts yet.");
+        statusLabel.setOpaque(true);
+        statusLabel.setBackground(new Color(223, 230, 233));
+        statusLabel.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
+        add(statusLabel, BorderLayout.SOUTH);
+    }
+
+    private void styleButton(JButton button) {
+        button.setBackground(new Color(44, 62, 80));
+        button.setForeground(Color.WHITE);
+        button.setFocusPainted(false);
+    }
+
+    private void addContact() {
+        String name = nameField.getText().trim();
+        String phone = phoneField.getText().trim();
+
+        if (name.isEmpty() || phone.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Please enter both name and phone number.",
+                    "Missing Information", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        if (!name.matches("[A-Za-z ]+")) {
+            JOptionPane.showMessageDialog(this, "Name should contain letters and spaces only.",
+                    "Invalid Name", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        if (!phone.matches("[0-9+\\- ]{7,15}")) {
+            JOptionPane.showMessageDialog(this, "Please enter a valid phone number.",
+                    "Invalid Phone", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        contacts.add(new Contact(name, phone));
+        nameField.setText("");
+        phoneField.setText("");
+        refreshTable(contacts);
+        statusLabel.setText("Contact '" + name + "' added successfully.");
+    }
+
+    private void refreshTable(List<Contact> data) {
+        tableModel.setRowCount(0);
+        for (Contact c : data) {
+            tableModel.addRow(new Object[]{c.getName(), c.getPhone()});
+        }
+        if (data == contacts) {
+            statusLabel.setText("Total contacts: " + contacts.size());
+        }
+    }
+
+    private void searchContacts() {
+        String query = searchField.getText().trim().toLowerCase();
+        if (query.isEmpty()) {
+            refreshTable(contacts);
+            return;
+        }
+
+        List<Contact> results = new ArrayList<>();
+        for (Contact c : contacts) {
+            if (c.getName().toLowerCase().contains(query)) {
+                results.add(c);
+            }
+        }
+        refreshTable(results);
+        statusLabel.setText("Found " + results.size() + " match(es) for '" + query + "'.");
+    }
+
+    private void deleteContact() {
+        int selectedRow = table.getSelectedRow();
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(this, "Please select a contact to delete.",
+                    "No Selection", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        String name = (String) tableModel.getValueAt(selectedRow, 0);
+        String phone = (String) tableModel.getValueAt(selectedRow, 1);
+
+        int confirm = JOptionPane.showConfirmDialog(this,
+                "Are you sure you want to delete '" + name + "'?",
+                "Confirm Delete", JOptionPane.YES_NO_OPTION);
+
+        if (confirm != JOptionPane.YES_OPTION) {
+            return;
+        }
+
+        contacts.removeIf(c -> c.getName().equals(name) && c.getPhone().equals(phone));
+        refreshTable(contacts);
+        statusLabel.setText("Contact '" + name + "' deleted.");
+    }
+
+    private static class Contact {
+        private final String name;
+        private final String phone;
+
+        Contact(String name, String phone) {
+            this.name = name;
+            this.phone = phone;
+        }
+
+        String getName() {
+            return name;
+        }
+
+        String getPhone() {
+            return phone;
+        }
+    }
+
+    private static class SimpleDocListener implements javax.swing.event.DocumentListener {
+        private final Runnable callback;
+
+        SimpleDocListener(Runnable callback) {
+            this.callback = callback;
+        }
+
+        @Override
+        public void insertUpdate(javax.swing.event.DocumentEvent e) {
+            callback.run();
+        }
+
+        @Override
+        public void removeUpdate(javax.swing.event.DocumentEvent e) {
+            callback.run();
+        }
+
+        @Override
+        public void changedUpdate(javax.swing.event.DocumentEvent e) {
+            callback.run();
+        }
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            ContactManagementSystem app = new ContactManagementSystem();
+            app.setVisible(true);
+        });
+    }
+}
